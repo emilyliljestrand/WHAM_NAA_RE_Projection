@@ -19,10 +19,8 @@ NULL
 rm(list=ls())
 
 # Load required packages for WHAM, TMB optimization, and data visualization
-library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
-library(TMB)
-library(dplyr)
-library(ggplot2)
+library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_EML")
+library(tidyverse)
 
 #' # ==============================================================================
 #' # 2) Full Estimation / Operating Model (1989-2024)
@@ -121,7 +119,8 @@ temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basi
 
 # BSB.EM.Y <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
 # saveRDS(BSB.EM.Y, "BSB.EM.Y.RDS")
-BSB.EM.Y <- readRDS("BSB.EM.Y.RDS")
+BSB.EM.Y <- readRDS("models/BSB.EM.Y.RDS")
+plot_wham_output(BSB.EM.Y)
 
 #' # ==============================================================================
 #' # 3) Reduced Estimation / Retrospective Model (1989-2021)
@@ -220,9 +219,9 @@ sel$fix_pars <- list(
 sel$re <- rep(c("2dar1","none","ar1_y","2dar1","none"), c(2,2,1,1,2))
 temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basic_info, move = move, catch_info = catch_info, index_info = index_info, age_comp = age_comp, selectivity = sel)
 
-BSB.EM.Y3 <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
-saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
-# BSB.EM.Y3 <- readRDS("BSB.EM.Y3.RDS")
+# BSB.EM.Y3 <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
+# saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
+BSB.EM.Y3 <- readRDS("models/BSB.EM.Y3.RDS")
 
 #' # ==============================================================================
 #' # 4) Three Retrospective Projection Scenarios (2022-2024)
@@ -231,18 +230,22 @@ saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
 # For all options, project at F40% (proj_F_opt = 3) for 3 years (2022-2024)
 
 # Option 1: Continue random effects on both recruitment (R) and Numbers-at-Age (NAA)
-BSB.EM.Y3.Proj.1 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=1,proj_NAA_opt=1,proj_F_opt=c(3,3,3)),check.version = F)
+# BSB.EM.Y3.Proj.1 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=1,proj_NAA_opt=1,proj_F_opt=c(3,3,3)),check.version = F)
 
 # Option 2: Turn off random effects on both recruitment (R) and Numbers-at-Age (NAA)
-BSB.EM.Y3.Proj.2 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=4,proj_NAA_opt=3,proj_F_opt=c(3,3,3)),check.version = F)
+# BSB.EM.Y3.Proj.2 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=4,proj_NAA_opt=3,proj_F_opt=c(3,3,3)),check.version = F)
 
 # Option 3: Average recruitment and NAA random effects over historical reference period
-BSB.EM.Y3.Proj.3 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=3,proj_NAA_opt=2,proj_F_opt=c(3,3,3)),check.version = F)
+# BSB.EM.Y3.Proj.3 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=3,proj_NAA_opt=2,proj_F_opt=c(3,3,3)),check.version = F)
 
 # Save projection objects
-saveRDS(BSB.EM.Y3.Proj.1, "BSB.EM.Y3.Proj.1.RDS")
-saveRDS(BSB.EM.Y3.Proj.2, "BSB.EM.Y3.Proj.2.RDS")
-saveRDS(BSB.EM.Y3.Proj.3, "BSB.EM.Y3.Proj.3.RDS")
+# saveRDS(BSB.EM.Y3.Proj.1, "BSB.EM.Y3.Proj.1.RDS")
+# saveRDS(BSB.EM.Y3.Proj.2, "BSB.EM.Y3.Proj.2.RDS")
+# saveRDS(BSB.EM.Y3.Proj.3, "BSB.EM.Y3.Proj.3.RDS")
+
+BSB.EM.Y3.Proj.1 <- readRDS("models/BSB.EM.Y3.Proj.1.RDS")
+BSB.EM.Y3.Proj.2 <- readRDS("models/BSB.EM.Y3.Proj.2.RDS")
+BSB.EM.Y3.Proj.3 <- readRDS("models/BSB.EM.Y3.Proj.3.RDS")
 
 #' # ==============================================================================
 #' # 5) Forecast Performance Evaluation & Relative Bias Metrics

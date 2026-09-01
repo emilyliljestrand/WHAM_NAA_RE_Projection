@@ -17,8 +17,8 @@ NULL
 # Attach necessary packages
 suppressPackageStartupMessages({
   library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
-  library(whamMSE)
-  library(dplyr)
+  library(SPASAM.MSE)
+  library(tidyverse)
 })
 
 # ---- Paths
@@ -212,7 +212,7 @@ index_info <- list(
 ## 6) Generate basic_info, then set NAA_where manually (SIMPLE)
 ## =============================================================================
 
-info <- whamMSE::generate_basic_info(
+info <- SPASAM.MSE::generate_basic_info(
   n_stocks         = n_stocks,
   n_regions        = n_regions,
   n_indices        = 4,
@@ -359,7 +359,7 @@ index_Neff <- cbind(Neff1, Neff2)
 index_Neff <- rbind(index_Neff, index_Neff[rep(hist_years, n_feedback_years), , drop = FALSE])
 input_Ecov$data$index_Neff <- index_Neff
 
-input_Ecov <- whamMSE::update_input_index_info(
+input_Ecov <- SPASAM.MSE::update_input_index_info(
   input_Ecov,
   agg_index_sigma = input_Ecov$data$agg_index_sigma,
   index_Neff      = input_Ecov$data$index_Neff
@@ -378,7 +378,7 @@ catch_Neff <- cbind(asap[[1]]$dat$catch_Neff, asap[[2]]$dat$catch_Neff)
 catch_Neff <- rbind(catch_Neff, catch_Neff[rep(hist_years, n_feedback_years), , drop = FALSE])
 input_Ecov$data$catch_Neff <- catch_Neff
 
-input_Ecov <- whamMSE::update_input_catch_info(
+input_Ecov <- SPASAM.MSE::update_input_catch_info(
   input_Ecov,
   agg_catch_sigma = input_Ecov$data$agg_catch_sigma,
   catch_Neff      = input_Ecov$data$catch_Neff
@@ -998,9 +998,7 @@ if (isTRUE(full_MSE)) {
   }
 }
 
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+library(tidyverse)
 
 # --- Build a long dataframe for plotting
 df <- bind_rows(

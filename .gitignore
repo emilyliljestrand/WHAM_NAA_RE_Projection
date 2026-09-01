@@ -9,3 +9,4 @@ output/
 .RData
 .Ruserdata
 *.RDS
+.Rproj.user
