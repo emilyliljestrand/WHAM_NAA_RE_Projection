@@ -1,28 +1,35 @@
-# Numbers at age projection best practices
-# 0.Test_w_BSB_Data.R
-# Emily Liljestrand
-# Created: December 15, 2025 
-# Updates: December 17, 2025
-#
-# Description - proof of concept that I can peel back 3 years from an estimation
-# model and do retrospective forecasting then compare the results to the full model
-# Using the 2024 BSB assessment model as an example
+#' @title Retrospective Forecasting Proof of Concept with Black Sea Bass Data
+#' @description Peels back 3 years (2022-2024) from the 2024 Black Sea Bass (BSB) 
+#'   stock assessment model (1989-2024) to generate retrospective forecasts under 
+#'   three projection options and evaluate bias against full model estimates.
+#' @details Evaluates three projection random effect options:
+#'   1. Continue random effects on both recruitment (R) and Numbers-at-Age (NAA).
+#'   2. Turn off random effects on both R and NAA.
+#'   3. Average over specified historical recruitment and NAA years.
+#'   Compares relative bias in Spawning Stock Biomass (SSB) estimates across North and South regions.
+#' @author Emily Liljestrand
+#' @name test_w_bsb_data
+NULL
 
-# Remove Old Objects and set working directory to file location:
+#' # ==============================================================================
+#' # 1) Environment Setup & Libraries
+#' # ==============================================================================
+
+# Clean workspace environment
 rm(list=ls())
 
-# Load libraries
+# Load required packages for WHAM, TMB optimization, and data visualization
 library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
 library(TMB)
 library(dplyr)
 library(ggplot2)
 
-#####################
-# "Full" Estimation / Operating Model:
-#####################
-asap <- read_asap3_dat(c("NORTH.1989.2024.DAT","SOUTH.1989.2024.DAT"))
-north_bt <- read.csv("bsb_bt_temp_nmab_1959-2024.csv")
-south_bt <- read.csv("bsb_bt_temp_smab_1959-2024.csv")
+#' # ==============================================================================
+#' # 2) Full Estimation / Operating Model (1989-2024)
+#' # ==============================================================================
+asap <- read_asap3_dat(file.path("data", "raw", "asap", c("NORTH.1989.2024.DAT","SOUTH.1989.2024.DAT")))
+north_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_nmab_1959-2024.csv"))
+south_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_smab_1959-2024.csv"))
 NAA_re = list(sigma = list("rec+1","rec+1"), cor = list("2dar1","2dar1"), N1_model = rep("equilibrium",2))
 NAA_re$decouple_recruitment = TRUE
 NAA_re$sigma_vals <- array(1,dim = c(2,2,8))
@@ -116,12 +123,14 @@ temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basi
 # saveRDS(BSB.EM.Y, "BSB.EM.Y.RDS")
 BSB.EM.Y <- readRDS("BSB.EM.Y.RDS")
 
-#####################
-# "Reduced" Estimation / Operating Model:
-#####################
-asap <- read_asap3_dat(c("NORTH.1989.2021.DAT","SOUTH.1989.2021.DAT"))
-north_bt <- read.csv("bsb_bt_temp_nmab_1959-2021.csv")
-south_bt <- read.csv("bsb_bt_temp_smab_1959-2021.csv")
+#' # ==============================================================================
+#' # 3) Reduced Estimation / Retrospective Model (1989-2021)
+#' # ==============================================================================
+
+# Load truncated ASAP datasets peeling off 3 terminal years (2022-2024)
+asap <- read_asap3_dat(file.path("data", "raw", "asap", c("NORTH.1989.2021.DAT","SOUTH.1989.2021.DAT")))
+north_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_nmab_1959-2021.csv"))
+south_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_smab_1959-2021.csv"))
 NAA_re = list(sigma = list("rec+1","rec+1"), cor = list("2dar1","2dar1"), N1_model = rep("equilibrium",2))
 NAA_re$decouple_recruitment = TRUE
 NAA_re$sigma_vals <- array(1,dim = c(2,2,8))
@@ -215,50 +224,40 @@ BSB.EM.Y3 <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
 saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
 # BSB.EM.Y3 <- readRDS("BSB.EM.Y3.RDS")
 
+#' # ==============================================================================
+#' # 4) Three Retrospective Projection Scenarios (2022-2024)
+#' # ==============================================================================
 
-#####################
-# Three Projection Options
-#####################
-# For all options, project at the F40% for 3 years
-#1 Continue RE in both R and NAA
+# For all options, project at F40% (proj_F_opt = 3) for 3 years (2022-2024)
+
+# Option 1: Continue random effects on both recruitment (R) and Numbers-at-Age (NAA)
 BSB.EM.Y3.Proj.1 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=1,proj_NAA_opt=1,proj_F_opt=c(3,3,3)),check.version = F)
-#2 No RE on R or NAA
+
+# Option 2: Turn off random effects on both recruitment (R) and Numbers-at-Age (NAA)
 BSB.EM.Y3.Proj.2 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=4,proj_NAA_opt=3,proj_F_opt=c(3,3,3)),check.version = F)
-#3 Average over $avg.yrs.R and NAA years
+
+# Option 3: Average recruitment and NAA random effects over historical reference period
 BSB.EM.Y3.Proj.3 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=3,proj_NAA_opt=2,proj_F_opt=c(3,3,3)),check.version = F)
 
-# Using the actual catch from 2022-2024
-#1 Continue RE in both R and NAA
-# BSB.EM.Y3.Proj.1 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=1,proj_NAA_opt=1,proj.catch=c(8439.6,7671.7,7532.2)),check.version = F)
-# #2 No RE on R or NAA
-# BSB.EM.Y3.Proj.2 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=4,proj_NAA_opt=3,proj.catch=c(8439.6,7671.7,7532.2)),check.version = F)
-# #3 Average over $avg.yrs.R and NAA years
-# BSB.EM.Y3.Proj.3 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=3,proj_NAA_opt=2,proj.catch=c(8439.6,7671.7,7532.2)),check.version = F)
-
-
+# Save projection objects
 saveRDS(BSB.EM.Y3.Proj.1, "BSB.EM.Y3.Proj.1.RDS")
 saveRDS(BSB.EM.Y3.Proj.2, "BSB.EM.Y3.Proj.2.RDS")
 saveRDS(BSB.EM.Y3.Proj.3, "BSB.EM.Y3.Proj.3.RDS")
-# 
-# BSB.EM.Y3.Proj.1 <- readRDS("BSB.EM.Y3.Proj.1.RDS")
-# BSB.EM.Y3.Proj.2 <- readRDS("BSB.EM.Y3.Proj.2.RDS")
-# BSB.EM.Y3.Proj.3 <- readRDS("BSB.EM.Y3.Proj.3.RDS")
 
-# Could also do the Rec version where predicted rec matches the mean from 2000:2024, but doesn't really matter to the SSB
+#' # ==============================================================================
+#' # 5) Forecast Performance Evaluation & Relative Bias Metrics
+#' # ==============================================================================
 
-#####################
-# Compare the projected SSB and F against the estimated SSB and F from the complete time series
-#####################
-
+# Compare projection models against the full 2024 estimation model estimates
 mods <- list(FullModel = BSB.EM.Y,Option1 = BSB.EM.Y3.Proj.1,Option2 = BSB.EM.Y3.Proj.2,Option3 = BSB.EM.Y3.Proj.3)
 compare_wham_models(mods,calc.aic = FALSE, do.table=F,plot.opts=list(which=c(1,6,7,8,9,10),kobe.yr=2021))
 
-# Bias in SSB estimates in the north
-mean((fit_proj_1$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Underestimates
-mean((fit_proj_2$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Underestimates
-mean((fit_proj_3$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Overestimates
+# Relative bias in terminal 3-year (2022-2024) SSB estimates in the North Region
+mean((BSB.EM.Y3.Proj.1$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 1 (Full RE)
+mean((BSB.EM.Y3.Proj.2$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 2 (No RE)
+mean((BSB.EM.Y3.Proj.3$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 3 (Avg RE)
 
-# Bias in SSB estimates in the south
-mean((fit_proj_1$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Underestimates
-mean((fit_proj_2$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Underestimates
-mean((fit_proj_3$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Underestimates
+# Relative bias in terminal 3-year (2022-2024) SSB estimates in the South Region
+mean((BSB.EM.Y3.Proj.1$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 1 (Full RE)
+mean((BSB.EM.Y3.Proj.2$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 2 (No RE)
+mean((BSB.EM.Y3.Proj.3$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 3 (Avg RE)

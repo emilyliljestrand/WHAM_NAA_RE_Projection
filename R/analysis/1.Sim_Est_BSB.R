@@ -1,28 +1,34 @@
-# ==============================================================================
-# BSB whamMSE test script (OM with fixed ecov) + EM convergence test
-# + optional full MSE loop with 3 projection options (proj_NAA_opt = 1,2,3)
-#
-# ==============================================================================
+#' @title Black Sea Bass Simulation-Estimation (MSE) Framework
+#' @description Configures a 2-stock, 2-region Operating Model (OM) with environmental covariates 
+#'   and conducts Estimation Model (EM) convergence tests and full MSE feedback loops across 
+#'   three projection random-effect options (`proj_NAA_opt` = 1, 2, 3).
+#' @details 
+#'   - Option 1: Continue random effects on both recruitment and Numbers-at-Age (NAA).
+#'   - Option 2: Turn off random effects in projections.
+#'   - Option 3: Average random effects over historical years.
+#' @author Emily Liljestrand
+#' @name sim_est_bsb
+NULL
 
+#' # ==============================================================================
+#' # 0) USER CONTROLS & ENVIRONMENT SETUP
+#' # ==============================================================================
+
+# Attach necessary packages
 suppressPackageStartupMessages({
   library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
   library(whamMSE)
   library(dplyr)
 })
 
-## =============================================================================
-## 0) USER CONTROLS (edit here)
-## =============================================================================
-
 # ---- Paths
-# proj_dir <- "C:/Users/liche/Desktop/Rutgers-MSE"
 proj_dir <- getwd()
 
-# ---- Time
+# ---- Timeline
 year_start <- 1989
 year_end   <- 2024
 
-# ---- MSE years (feedback/projection years appended to time-varying inputs)
+# ---- MSE projection horizon (feedback years appended to inputs)
 n_feedback_years <- 3
 
 # ---- Dimensions
@@ -36,40 +42,54 @@ seed_main <- 1
 # ---- Run controls
 do_quick_plots <- TRUE
 
-# (2) EM convergence test vs full MSE loop
-EM_fit   <- TRUE    # default TRUE: fit one EM once and check convergence
-full_MSE <- FALSE   # default FALSE: do NOT run full MSE unless TRUE
+# (2) Single EM convergence test vs full closed-loop MSE
+EM_fit   <- TRUE    # Default TRUE: fit single EM and evaluate convergence
+full_MSE <- FALSE   # Default FALSE: set TRUE to execute complete MSE loop
 
-# (3) NAA RE sigma controls
-Rec_sigma <- 0.5   # age-1 recruitment sigma
-NAA_sigma <- 0.5   # ages >=2 sigma
+# (3) NAA RE variance controls
+Rec_sigma <- 0.5   # Age-1 recruitment variance sigma
+NAA_sigma <- 0.5   # Ages >= 2 variance sigma
 
-# (3) Toggle environmental covariate link to recruitment
-use_ecov_rec_link <- FALSE   # FALSE => "none" everywhere
+# Toggle environmental covariate link to recruitment
+use_ecov_rec_link <- FALSE   # FALSE => "none" link
 
-# Full MSE: projection options you want to compare
+# Full MSE: projection options to evaluate (1 = Full RE, 2 = No RE, 3 = Avg RE)
 proj_opts_to_run <- c(1, 2, 3)
 
-## =============================================================================
-## 1) Setup utilities (keep minimal)
-## =============================================================================
+#' # ==============================================================================
+#' # 1) SETUP UTILITIES
+#' # ==============================================================================
 
 setwd(proj_dir)
 p <- function(...) file.path(proj_dir, ...)
 
+# Verify input file existence
 stopifnot(dir.exists(proj_dir))
 stopifnot(file.exists(p("models", "fit.RDS")))
-stopifnot(file.exists(p("data", "NORTH.1989.2024.dat")))
-stopifnot(file.exists(p("data", "SOUTH.1989.2024.dat")))
-stopifnot(file.exists(p("data", "bsb_bt_temp_nmab_1959-2024.csv")))
-stopifnot(file.exists(p("data", "bsb_bt_temp_smab_1959-2024.csv")))
+stopifnot(file.exists(p("data", "raw", "asap", "NORTH.1989.2024.DAT")))
+stopifnot(file.exists(p("data", "raw", "asap", "SOUTH.1989.2024.DAT")))
+stopifnot(file.exists(p("data", "raw", "covariates", "bsb_bt_temp_nmab_1959-2024.csv")))
+stopifnot(file.exists(p("data", "raw", "covariates", "bsb_bt_temp_smab_1959-2024.csv")))
 
-# Inverse logit helper for selectivity initialization
+#' Inverse Logit Parameter Transformation Helper
+#'
+#' @description Maps unconstrained logit scale parameters `eta` back to target bounded range `[low, upp]`.
+#' @param eta Numeric parameter vector on logit scale.
+#' @param low Lower parameter bound.
+#' @param upp Upper parameter bound.
+#' @param s Scale multiplier (default 1).
+#' @return Numeric parameter values transformed to `[low, upp]`.
+#' @export
 gen.invlogit <- function(eta, low, upp, s = 1) {
   low + (upp - low) * plogis(s * eta)
 }
 
-# Convergence checker (used both for EM test and loop)
+#' Check Estimation Model Convergence and Positive-Definite Hessian
+#'
+#' @description Evaluates optimization convergence code and Hessian status for fitted WHAM model objects.
+#' @param em Fitted WHAM estimation model object (`fit_wham`).
+#' @return List with logical components `conv` (TRUE if opt converged) and `pdHess` (TRUE if Hessian is positive-definite).
+#' @export
 check_conv <- function(em) {
   conv   <- isTRUE(as.logical(1 - em$opt$convergence))
   pdHess <- isTRUE(!isTRUE(em$na_sdrep) && !is.na(em$na_sdrep))
@@ -82,11 +102,11 @@ check_conv <- function(em) {
 
 OMa <- readRDS(p("models", "fit.RDS"))
 
-asap <- wham::read_asap3_dat(p("data", c("NORTH.1989.2024.dat", "SOUTH.1989.2024.dat")))
+asap <- wham::read_asap3_dat(p("data", "raw", "asap", c("NORTH.1989.2024.DAT", "SOUTH.1989.2024.DAT")))
 temp <- wham::prepare_wham_input(asap)
 
-north_bt <- read.csv(p("data", "bsb_bt_temp_nmab_1959-2024.csv"))
-south_bt <- read.csv(p("data", "bsb_bt_temp_smab_1959-2024.csv"))
+north_bt <- read.csv(p("data", "raw", "covariates", "bsb_bt_temp_nmab_1959-2024.csv"))
+south_bt <- read.csv(p("data", "raw", "covariates", "bsb_bt_temp_smab_1959-2024.csv"))
 
 ## =============================================================================
 ## 3) Build ecov object (with ON/OFF rec linkage)
@@ -490,7 +510,7 @@ em.opt <- list(
 ## =============================================================================
 ## 13.5) OM configuration to exactly match BSB 2025MT assessment but without ecov
 ## =============================================================================
-asap <- wham::read_asap3_dat(p("data", c("NORTH.1989.2024.dat", "SOUTH.1989.2024.dat")))
+asap <- wham::read_asap3_dat(p("data", "raw", "asap", c("NORTH.1989.2024.DAT", "SOUTH.1989.2024.DAT")))
 
 # Specification for NAA RE
 NAA_re = list(sigma = list("rec+1","rec+1"), cor = list("2dar1","2dar1"), N1_model = rep("equilibrium",2))
