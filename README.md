@@ -30,11 +30,6 @@ source("R/01_run_mse.R")
 source("R/02_plot_mse.R")
 ```
 
-Edit the experiment settings at the top of `R/01_run_mse.R` to choose seeds,
-replicate count, and $F_{X\%SPR}$ strategies. The initial configuration is a
-small generic two-stock example so the package workflow can be tested before
-moving the Black Sea Bass model inputs into the new structure.
-
 ## NOAA Disclaimer
 
 This repository is a scientific product and is not official communication of the National Oceanic and
