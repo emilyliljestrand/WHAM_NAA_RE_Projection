@@ -1,0 +1,82 @@
+---
+title: "Manuscript First Draft"
+author:
+  - name: "Emily Liljestrand"
+  - name: "Jonathan Deroba"
+  - name: "Chengxue Li"
+date: last-modified
+keywords:
+  - management strategy evaluation
+  - stock assessment
+  - projections
+  - Black Sea Bass
+bibliography: references.bib
+format:
+  html:
+    toc: true
+    number-sections: true
+  docx:
+    toc: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## Abstract
+
+<!-- Summarize the question, methods, primary findings, and management implications. -->
+
+## Introduction
+
+<!-- Describe the management context and why assumptions about numbers-at-age
+random effects in projections matter. -->
+
+## Methods
+
+### Study system
+
+<!-- Describe the Black Sea Bass stock, assessment context, and management setting. -->
+
+### Operating model
+
+<!-- Describe population dynamics, spatial structure, data inputs, and the
+numbers-at-age random-effect scenarios. -->
+
+### Estimation model and projections
+
+<!-- Describe the estimation model, projection alternatives, and reference points. -->
+
+### Management strategy evaluation
+
+<!-- Describe the feedback loop, harvest control rule, simulation replicates,
+and performance metrics. The MSE workflow uses SPASAM.MSE [@li2026spasammse]. -->
+
+### Statistical analysis
+
+<!-- Define summaries, uncertainty intervals, and comparison criteria. -->
+
+## Results
+
+### Estimation and projection performance
+
+<!-- Report performance across random-effect assumptions. -->
+
+### Management outcomes
+
+<!-- Report catch, biomass, fishing mortality, and risk outcomes. -->
+
+## Discussion
+
+<!-- Interpret the results, implications for assessment practice, limitations,
+and future work. -->
+
+## Acknowledgments
+
+<!-- Add contributors, funding sources, and data providers. -->
+
+## Data and code availability
+
+<!-- Add the repository URL and any data-access conditions before submission. -->
+
+## References

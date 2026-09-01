@@ -1,4 +1,10 @@
-.Rproj.user
+# Reproducible MSE outputs
+output/
+
+# Local R session files
+.Rhistory
+.RData
+.Ruserdata.Rproj.user
 .Rhistory
 .RData
 .Ruserdata

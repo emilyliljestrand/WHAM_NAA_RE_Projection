@@ -1,0 +1,13 @@
+{
+  "name": "WHAM NAA RE Projection",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r"
+      ]
+    }
+  }
+}

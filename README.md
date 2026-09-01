@@ -7,6 +7,34 @@ Simulation-Estimation to test assumed NAA RE in projections on management outcom
 
 ## Files
 
+| Path | Purpose |
+| --- | --- |
+| `R/01_run_mse.R` | Runs a configurable two-stock, two-region SPASAM.MSE example and saves each strategy/replicate result. |
+| `R/02_plot_mse.R` | Reads the saved MSE results and creates an HTML performance report. |
+| `output/mse_results/` | Created by the runner; contains `run_metadata.rds` and per-strategy replicate outputs. |
+| `output/mse_report/` | Created by the plotting script; contains the rendered report and figures. |
+
+## MSE workflow
+
+The MSE scripts use [SPASAM.MSE](https://github.com/lichengxue/SPASAM.MSE). Install R package dependencies once:
+
+```r
+install.packages("remotes")
+remotes::install_github("lichengxue/SPASAM.MSE", dependencies = TRUE)
+```
+
+From the repository root, run the scripts in order:
+
+```r
+source("R/01_run_mse.R")
+source("R/02_plot_mse.R")
+```
+
+Edit the experiment settings at the top of `R/01_run_mse.R` to choose seeds,
+replicate count, and $F_{X\%SPR}$ strategies. The initial configuration is a
+small generic two-stock example so the package workflow can be tested before
+moving the Black Sea Bass model inputs into the new structure.
+
 ## NOAA Disclaimer
 
 This repository is a scientific product and is not official communication of the National Oceanic and
