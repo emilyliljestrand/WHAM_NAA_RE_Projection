@@ -9,7 +9,6 @@
 #'   Compares relative bias in Spawning Stock Biomass (SSB) estimates across North and South regions.
 #' @author Emily Liljestrand
 #' @name test_w_bsb_data
-NULL
 
 #' # ==============================================================================
 #' # 1) Environment Setup & Libraries
@@ -19,8 +18,11 @@ NULL
 rm(list=ls())
 
 # Load required packages for WHAM, TMB optimization, and data visualization
-library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_EML")
+library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
+# library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_EML")
 library(tidyverse)
+library(here)
+
 
 #' # ==============================================================================
 #' # 2) Full Estimation / Operating Model (1989-2024)
@@ -28,8 +30,11 @@ library(tidyverse)
 asap <- read_asap3_dat(file.path("data", "raw", "asap", c("NORTH.1989.2024.DAT","SOUTH.1989.2024.DAT")))
 north_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_nmab_1959-2024.csv"))
 south_bt <- read.csv(file.path("data", "raw", "covariates", "bsb_bt_temp_smab_1959-2024.csv"))
+
+##########
+# NAA_re
+##########
 NAA_re = list(sigma = list("rec+1","rec+1"), cor = list("2dar1","2dar1"), N1_model = rep("equilibrium",2))
-NAA_re$decouple_recruitment = TRUE
 NAA_re$sigma_vals <- array(1,dim = c(2,2,8))
 NAA_re$sigma_vals[1,2,2:8] <- 0.05
 NAA_re$sigma_map <- array(1,dim = c(2,2,8))
@@ -45,6 +50,9 @@ NAA_re$cor_map[1,1,3] <- 3 #stock 1, region 1, rho_y 2-8
 NAA_re$cor_map[2,,1] <- 4 #stock 2, rho_a
 NAA_re$cor_map[2,,2] <- 5 #stock 2, rho_y
 NAA_re$cor_map[2,,3] <- 6 #stock 2, rho_y 2-8
+##########
+# ecov
+##########
 ecov <- list(label = c("North_BT","South_BT"))
 ecov$mean <- cbind(north_bt[,'mean'], south_bt[,'mean'])
 ecov$logsigma <- log(cbind(north_bt[,'se'], south_bt[,'se']))
@@ -53,7 +61,12 @@ ecov$use_obs <- matrix(1, NROW(ecov$mean),NCOL(ecov$mean))
 ecov$process_model <- "ar1"
 ecov$process_mean_vals <- apply(ecov$mean, 2, mean)
 ecov$recruitment_how <- matrix(c("controlling-lag-0-linear","none","none","none"), 2,2)
+
 temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re)
+
+##########
+# basic_info
+##########
 seasons = c(rep(1,5),2,rep(1,5))/12
 basic_info <- list(region_names = c("North", "South"), stock_names = paste0("BSB_", c("North", "South"))) #, NAA_where = array(1, dim = c(2,2,6)))
 basic_info$fracyr_seasons <- seasons
@@ -62,6 +75,10 @@ basic_info$NAA_where[1,2,1] = 0 #stock 1, age 1 can't be in region 2
 basic_info$NAA_where[2,1,] = 0 #stock 2, any age can't be in region 1 (stock 2 doesn't move) 
 basic_info$XSPR_R_avg_yrs <- which(temp$years>1999)
 basic_info$XSPR_R_opt <- 2 #use average of recruitments (random effects), not expected/predicted given last time step
+
+##########
+# move
+##########
 move = list(stock_move = c(TRUE,FALSE), separable = TRUE) #north moves, south doesn't
 move$must_move = array(0,dim = c(2,length(seasons),2))  
 move$must_move[1,5,2] <- 1 
@@ -80,6 +97,10 @@ move$use_prior[1,1,2,1] <- 1
 move$prior_sigma <- array(0, dim = c(2,length(seasons),2,1))
 move$prior_sigma[1,1,1,1] <- 0.2
 move$prior_sigma[1,1,2,1] <- 0.2
+
+##########
+# obs model
+##########
 catch_info <- list(
   catch_Neff = matrix(1000, length(temp$years), temp$data$n_fleets), 
   selblock_pointer_fleets =  matrix(rep(1:4, each = length(temp$years)), length(temp$years)),
@@ -92,6 +113,10 @@ index_info <- list(index_Neff = matrix(1000, length(temp$years), temp$data$n_ind
 age_comp = list(
   fleets = c("dir-mult","logistic-normal-miss0","logistic-normal-ar1-miss0","logistic-normal-ar1-miss0"), 
   indices = c("logistic-normal-miss0","dir-mult","logistic-normal-ar1-miss0","logistic-normal-ar1-miss0"))
+
+##########
+# sel
+##########
 sel <- list(n_selblocks = 8, model = rep(c("age-specific","logistic","age-specific","age-specific"),
                                          c(2,2,3,1)))
 sel$initial_pars <- list(
@@ -115,12 +140,15 @@ sel$fix_pars <- list(
   2:8 #south vast
 )
 sel$re <- rep(c("2dar1","none","ar1_y","2dar1","none"), c(2,2,1,1,2))
-temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basic_info, move = move, catch_info = catch_info, index_info = index_info, age_comp = age_comp, selectivity = sel)
+
+
+temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basic_info, move = move, catch_info = catch_info, index_info = index_info, age_comp = age_comp)
+temp <- set_selectivity(temp,selectivity=sel)
 
 # BSB.EM.Y <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
 # saveRDS(BSB.EM.Y, "BSB.EM.Y.RDS")
 BSB.EM.Y <- readRDS("models/BSB.EM.Y.RDS")
-plot_wham_output(BSB.EM.Y)
+plot_wham_output(BSB.EM.Y, dir.main = file.path(here(),"output", "BSB_analysis", "0.Test_w_BSB_data","BSB.EM.Y"),plot.opts=list(colors='ocean'))
 
 #' # ==============================================================================
 #' # 3) Reduced Estimation / Retrospective Model (1989-2021)
@@ -222,6 +250,7 @@ temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basi
 # BSB.EM.Y3 <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
 # saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
 BSB.EM.Y3 <- readRDS("models/BSB.EM.Y3.RDS")
+plot_wham_output(BSB.EM.Y, dir.main = file.path(here(),"output", "BSB_analysis", "0.Test_w_BSB_data","BSB.EM.Y3"))
 
 #' # ==============================================================================
 #' # 4) Three Retrospective Projection Scenarios (2022-2024)
@@ -253,14 +282,32 @@ BSB.EM.Y3.Proj.3 <- readRDS("models/BSB.EM.Y3.Proj.3.RDS")
 
 # Compare projection models against the full 2024 estimation model estimates
 mods <- list(FullModel = BSB.EM.Y,Option1 = BSB.EM.Y3.Proj.1,Option2 = BSB.EM.Y3.Proj.2,Option3 = BSB.EM.Y3.Proj.3)
-compare_wham_models(mods,calc.aic = FALSE, do.table=F,plot.opts=list(which=c(1,6,7,8,9,10),kobe.yr=2021))
+compare_wham_models(mods, fdir = file.path("output", "BSB_analysis", "0.Test_w_BSB_data"), calc.aic = FALSE, do.table=F,plot.opts=list(which=c(1,6,7,8,9,10),kobe.yr=2021))
 
-# Relative bias in terminal 3-year (2022-2024) SSB estimates in the North Region
-mean((BSB.EM.Y3.Proj.1$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 1 (Full RE)
-mean((BSB.EM.Y3.Proj.2$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 2 (No RE)
-mean((BSB.EM.Y3.Proj.3$rep$SSB[34:36,1] - BSB.EM.Y$rep$SSB[34:36,1])/BSB.EM.Y$rep$SSB[34:36,1]) # Option 3 (Avg RE)
+# Summarize relative bias in terminal 3-year (2022-2024) SSB estimates
+projection_models <- list(
+  "Option 1" = BSB.EM.Y3.Proj.1,
+  "Option 2" = BSB.EM.Y3.Proj.2,
+  "Option 3" = BSB.EM.Y3.Proj.3
+)
+option_descriptions <- c("Full RE", "No RE", "Avg RE")
 
-# Relative bias in terminal 3-year (2022-2024) SSB estimates in the South Region
-mean((BSB.EM.Y3.Proj.1$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 1 (Full RE)
-mean((BSB.EM.Y3.Proj.2$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 2 (No RE)
-mean((BSB.EM.Y3.Proj.3$rep$SSB[34:36,2] - BSB.EM.Y$rep$SSB[34:36,2])/BSB.EM.Y$rep$SSB[34:36,2]) # Option 3 (Avg RE)
+ssb_relative_bias <- expand_grid(
+  region = c("North", "South"),
+  option = names(projection_models)
+) %>%
+  mutate(
+    scenario = option_descriptions[match(option, names(projection_models))],
+    mean_relative_bias = map2_dbl(region, option, ~ {
+      region_index <- match(.x, c("North", "South"))
+      projected_ssb <- projection_models[[.y]]$rep$SSB[34:36, region_index]
+      full_model_ssb <- BSB.EM.Y$rep$SSB[34:36, region_index]
+      mean((projected_ssb - full_model_ssb) / full_model_ssb)
+    })
+  )
+
+ssb_relative_bias
+write_csv(
+  ssb_relative_bias,
+  file.path(here(), "output", "BSB_analysis", "0.Test_w_BSB_data", "ssb_relative_bias_2022_2024.csv")
+)
