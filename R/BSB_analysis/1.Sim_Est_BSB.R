@@ -60,8 +60,6 @@ for(i in 1:nreps)
   )
   
   output_dir <- here("output", "BSB_analysis", "1.Sim_Est_BSB")
-  model_dir <- file.path(output_dir, "models")
-  dir.create(model_dir, recursive = TRUE, showWarnings = FALSE)
   
   stopifnot(
     identical(training_years, full_years[full_years <= max(training_years)]),
@@ -103,7 +101,7 @@ for(i in 1:nreps)
     random = random_effects
   )
   
-  saveRDS(simulated_model, file.path(model_dir, paste("BSB.simulated.1989.2024.sim",i,".RDS",sep="")))
+  saveRDS(simulated_model, file.path(output_dir, paste("BSB.simulated.1989.2024.sim",i,".RDS",sep="")))
   
   # Also save just the simulated catch/index observations for inspection without
   # loading the full WHAM object.
@@ -301,7 +299,7 @@ for(i in 1:nreps)
     do.brps = TRUE,
     MakeADFun.silent = FALSE
   )
-  saveRDS(full_model, file.path(model_dir, paste("BSB.simulated.EM.1989.2024.sim",i,".RDS",sep="")))
+  saveRDS(full_model, file.path(output_dir, paste("BSB.simulated.EM.1989.2024.sim",i,".RDS",sep="")))
   
   
   # Training EM: withhold 2022-2024, then project those years in section 4.
@@ -315,7 +313,7 @@ for(i in 1:nreps)
     do.brps = TRUE,
     MakeADFun.silent = FALSE
   )
-  saveRDS(training_model, file.path(model_dir, paste("BSB.simulated.EM.1989.2021.sim",i,".RDS",sep="")))
+  saveRDS(training_model, file.path(output_dir, paste("BSB.simulated.EM.1989.2021.sim",i,".RDS",sep="")))
   
   convergence <- bind_rows(
     check_convergence(full_model) %>% mutate(model = "Full fit: 1989-2024", .before = 1),
@@ -349,9 +347,9 @@ for(i in 1:nreps)
     proj.opts = projection_options3,
     check.version = FALSE
   )
-  saveRDS(projected_model1, file.path(model_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt1.sim",i,".RDS",sep="")))
-  saveRDS(projected_model1, file.path(model_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt2.sim",i,".RDS",sep="")))
-  saveRDS(projected_model1, file.path(model_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt3.sim",i,".RDS",sep="")))
+  saveRDS(projected_model1, file.path(output_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt1.sim",i,".RDS",sep="")))
+  saveRDS(projected_model2, file.path(output_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt2.sim",i,".RDS",sep="")))
+  saveRDS(projected_model3, file.path(output_dir, paste("BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt3.sim",i,".RDS",sep="")))
   }
 }
 
