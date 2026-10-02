@@ -10,9 +10,7 @@ Black Sea Bass (*Centropristis striata*) projections and spawning-stock biomass
 | Path | Contents |
 | --- | --- |
 | [`R/BSB_analysis/0.Test_w_BSB_Data.R`](R/BSB_analysis/0.Test_w_BSB_Data.R) | Fits the full 1989–2024 Black Sea Bass model, fits a truncated 1989–2021 model, projects 2022–2024 under three random-effects options, and calculates relative SSB bias. |
-| [`R/BSB_analysis/0.Test_w_BSB_Data.Rmd`](R/BSB_analysis/0.Test_w_BSB_Data.Rmd) | Sectioned R Markdown version of the retrospective analysis, with space for comments and output notes. |
 | [`R/BSB_analysis/1.Sim_Est_BSB.R`](R/BSB_analysis/1.Sim_Est_BSB.R) | Runs the 10-replicate simulation-estimation experiment: simulates observations, fits full and truncated models, projects the truncated fits, and saves comparisons. |
-| [`R/BSB_analysis/1.Sim_Est_BSB.Rmd`](R/BSB_analysis/1.Sim_Est_BSB.Rmd) | Sectioned R Markdown version of the simulation-estimation analysis. |
 | [`R/functions/project_paths.R`](R/functions/project_paths.R) | Utilities for project-relative paths and output directories. |
 | [`config/mse_settings.R`](config/mse_settings.R) | General SPASAM.MSE settings list; it is configuration support rather than the current analysis entry point. |
 | [`data/raw/asap/`](data/raw/asap/) | North and South ASAP inputs for 1989–2021 and 1989–2024. |
@@ -21,7 +19,6 @@ Black Sea Bass (*Centropristis striata*) projections and spawning-stock biomass
 | [`models/`](models/) | Saved fitted WHAM models and the shared BSB model configuration. |
 | [`output/BSB_analysis/`](output/BSB_analysis/) | Generated WHAM reports, relative-bias results, simulation data, convergence summaries, and replicate model files. |
 | [`writing/manuscript-first-draft.qmd`](writing/manuscript-first-draft.qmd) | Quarto manuscript scaffold. |
-| [`writing/figures_tables.Rmd`](writing/figures_tables.Rmd) | Report template for assembling WHAM figures and tables. |
 | [`writing/references.bib`](writing/references.bib) | Manuscript bibliography. |
 
 ## Analysis overview
@@ -62,9 +59,6 @@ source("R/BSB_analysis/0.Test_w_BSB_Data.R")
 source("R/BSB_analysis/1.Sim_Est_BSB.R")
 ```
 
-Alternatively, open the corresponding `.Rmd` files in Positron or RStudio and
-knit them to HTML. The simulation-estimation analysis performs model fitting and
-can require substantial time and memory.
 
 ## Main outputs
 
