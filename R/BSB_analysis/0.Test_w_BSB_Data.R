@@ -145,6 +145,9 @@ sel$re <- rep(c("2dar1","none","ar1_y","2dar1","none"), c(2,2,1,1,2))
 temp <- prepare_wham_input(asap, ecov = ecov, NAA_re = NAA_re, basic_info = basic_info, move = move, catch_info = catch_info, index_info = index_info, age_comp = age_comp)
 temp <- set_selectivity(temp,selectivity=sel)
 
+configurations <- list(ecov=ecov,NAA_re=NAA_re,move=move,age_comp=age_comp,sel=sel)
+saveRDS(configurations,"models/BSB.EM.Y.Config.RDS")
+
 # BSB.EM.Y <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
 # saveRDS(BSB.EM.Y, "BSB.EM.Y.RDS")
 BSB.EM.Y <- readRDS("models/BSB.EM.Y.RDS")
