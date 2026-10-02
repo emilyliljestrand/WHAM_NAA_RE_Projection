@@ -4,12 +4,11 @@
 #'   the truncated model through 2024, and compares projections with the full fit.
 #' @name sim_est_bsb
 
-# WHAM is loaded from a pinned project library so the BSB model stays on
-# version 2.1.0.9003. SPASAM.MSE supplies update_om_fn() and make_em_input().
+# WHAM and SPASAM.MSE supply the model-fitting and simulation functions used here.
 rm(list = ls())
 
 suppressPackageStartupMessages({
-  library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
+  library(wham)
   library(SPASAM.MSE)
   library(tidyverse)
   library(here)

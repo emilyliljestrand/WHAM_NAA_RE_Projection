@@ -1,5 +1,11 @@
-# Reproducible MSE outputs
+# Generated analysis outputs
 output/
+
+# Fitted models and other serialized model objects
+models/
+**/models/
+*.RDS
+*.rds
 
 # Local R session files
 .Rhistory
@@ -8,5 +14,4 @@ output/
 .Rhistory
 .RData
 .Ruserdata
-*.RDS
 .Rproj.user

@@ -18,8 +18,7 @@
 rm(list=ls())
 
 # Load required packages for WHAM, TMB optimization, and data visualization
-library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9003")
-# library(wham, lib.loc = "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_EML")
+library(wham)
 library(tidyverse)
 library(here)
 

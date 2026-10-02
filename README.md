@@ -41,7 +41,7 @@ operating-model truth, simulates catch and index observations, fits full and
 
 The scripts require R and the following packages:
 
-- `wham`, using the pinned local build referenced in the scripts (`2.1.0.9003`)
+- `wham`
 - [`SPASAM.MSE`](https://github.com/lichengxue/SPASAM.MSE)
 - `tidyverse`
 - `here`
