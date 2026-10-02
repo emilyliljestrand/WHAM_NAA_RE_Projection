@@ -1,5 +1,5 @@
 #' @title Project Path Utilities
-#' @description Helper functions for constructing paths relative to the project root 
+#' @description Helper functions for constructing paths relative to the project root
 #'   and creating output directory structures for WHAM / MSE projections.
 #' @details Provides path normalization ensuring consistency across platforms and operating environments.
 #' @name project_paths
@@ -20,7 +20,7 @@ project_path <- function(...) {
 
 #' Create Project Output Directory
 #'
-#' @description Constructs a directory path within the project's `output/` folder and creates 
+#' @description Constructs a directory path within the project's `output/` folder and creates
 #'   the directory if it does not already exist.
 #' @param ... Character strings representing subdirectories within `output/`.
 #' @return A character string with the absolute path to the initialized output directory.
