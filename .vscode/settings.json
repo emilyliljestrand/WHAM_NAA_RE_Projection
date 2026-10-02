@@ -1,9 +1,0 @@
-{
-  "r.rterm.windows": "C:\\Users\\emily.liljestrand\\AppData\\Local\\Programs\\R\\R-4.4.3\\bin\\R.exe",
-  "chat.tools.terminal.autoApprove": {
-    "/^Rscript -e \"x <- readRDS\\('models/BSB\\.EM\\.Y\\.RDS'\\); cat\\('basic_info names:\\\\n'\\); print\\(names\\(x\\$input\\$basic_info\\)\\); cat\\('NAA_re names:\\\\n'\\); print\\(names\\(x\\$input\\$NAA_re\\)\\); cat\\('apply_re_trend locations:\\\\n'\\); str\\(list\\(basic=x\\$input\\$basic_info\\$apply_re_trend, naa=x\\$input\\$NAA_re\\$apply_re_trend, data=x\\$input\\$data\\$apply_re_trend\\)\\); cat\\('input top names:\\\\n'\\); print\\(names\\(x\\$input\\)\\)\"$/": {
-      "approve": true,
-      "matchCommandLine": true
-    }
-  }
-}
