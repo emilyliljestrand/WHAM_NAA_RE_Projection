@@ -10,14 +10,14 @@ Black Sea Bass (*Centropristis striata*) projections and spawning-stock biomass
 | Path | Contents |
 | --- | --- |
 | [`R/BSB_analysis/0.Test_w_BSB_Data.R`](R/BSB_analysis/0.Test_w_BSB_Data.R) | Fits the full 1989–2024 Black Sea Bass model, fits a truncated 1989–2021 model, projects 2022–2024 under three random-effects options, and calculates relative SSB bias. |
-| [`R/BSB_analysis/1.Sim_Est_BSB.R`](R/BSB_analysis/1.Sim_Est_BSB.R) | Runs the 10-replicate simulation-estimation experiment: simulates observations, fits full and truncated models, projects the truncated fits, and saves comparisons. |
+| [`R/BSB_analysis/1.Sim_Est_BSB.R`](R/BSB_analysis/1.Sim_Est_BSB.R) | Runs the 20-replicate simulation-estimation experiment: simulates observations, fits full and truncated models, projects the truncated fits, and saves comparisons. |
 | [`R/functions/project_paths.R`](R/functions/project_paths.R) | Utilities for project-relative paths and output directories. |
 | [`config/mse_settings.R`](config/mse_settings.R) | General SPASAM.MSE settings list; it is configuration support rather than the current analysis entry point. |
 | [`data/raw/asap/`](data/raw/asap/) | North and South ASAP inputs for 1989–2021 and 1989–2024. |
 | [`data/raw/covariates/`](data/raw/covariates/) | North and South bottom-temperature covariates for 1959–2021 and 1959–2024. |
 | [`data/raw/seeds/`](data/raw/seeds/) | Simulation seeds for the simulation-estimation workflow. |
 | [`models/`](models/) | Saved fitted WHAM models and the shared BSB model configuration. |
-| [`output/BSB_analysis/`](output/BSB_analysis/) | Generated WHAM reports, relative-bias results, simulation data, convergence summaries, and replicate model files. |
+| [`output/BSB_analysis/`](output/BSB_analysis/) | Generated WHAM reports, relative-bias results, simulated observations, and convergence summaries. |
 | [`writing/manuscript-first-draft.qmd`](writing/manuscript-first-draft.qmd) | Quarto manuscript scaffold. |
 | [`writing/references.bib`](writing/references.bib) | Manuscript bibliography. |
 
@@ -41,7 +41,7 @@ operating-model truth, simulates catch and index observations, fits full and
 
 The scripts require R and the following packages:
 
-- `wham`
+- `wham` or a local WHAM checkout
 - [`SPASAM.MSE`](https://github.com/lichengxue/SPASAM.MSE)
 - `tidyverse`
 - `here`
@@ -49,6 +49,11 @@ The scripts require R and the following packages:
 The simulation-estimation workflow also requires the saved operating model and
 configuration files in `models/`. The fitting calls in the retrospective script
 are commented out, so existing `.RDS` files are read from that directory.
+
+By default, the scripts look for a local WHAM checkout in a sibling directory
+named `wham`. To use a different checkout, set the `WHAM_LOCAL_PATH` environment
+variable before running the scripts. If no local checkout is found, the scripts
+use an installed `wham` package.
 
 ## Running the analyses
 
@@ -66,9 +71,11 @@ The retrospective analysis writes the relative-bias summary to
 [`output/BSB_analysis/0.Test_w_BSB_data/ssb_relative_bias_2022_2024.csv`](output/BSB_analysis/0.Test_w_BSB_data/ssb_relative_bias_2022_2024.csv)
 and generates WHAM diagnostic output under the same directory.
 
-The simulation-estimation analysis writes model-convergence summaries,
-simulated catch/index data, fitted model objects, and projection-comparison
-outputs under [`output/BSB_analysis/1.Sim_Est_BSB/`](output/BSB_analysis/1.Sim_Est_BSB/).
+The simulation-estimation analysis writes model-convergence summaries, simulated
+catch/index data, and projection-comparison outputs under
+[`output/BSB_analysis/1.Sim_Est_BSB/`](output/BSB_analysis/1.Sim_Est_BSB/).
+The large fitted and projected WHAM model objects are kept in memory only and
+are not saved by the simulation script.
 
 Generated outputs and `.RDS` files are excluded from version control by
 [`.gitignore`](.gitignore), although these directories may exist locally after

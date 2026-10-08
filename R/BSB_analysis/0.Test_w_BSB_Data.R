@@ -17,10 +17,26 @@
 # Clean workspace environment
 rm(list = ls())
 
-# Load required packages for WHAM, TMB optimization, and data visualization
-library(wham)
-library(tidyverse)
 library(here)
+
+# Load the specific installed WHAM version used for this analysis.
+wham_lib <- "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9011"
+if (!file.exists(file.path(wham_lib, "wham", "DESCRIPTION"))) {
+  stop(
+    paste("WHAM 2.1.0.9011 was not found at", wham_lib),
+    call. = FALSE
+  )
+}
+# Remove any WHAM namespace loaded earlier from a different library.
+if ("wham" %in% loadedNamespaces()) {
+  if ("package:wham" %in% search()) {
+    detach("package:wham", unload = TRUE, character.only = TRUE)
+  } else {
+    unloadNamespace("wham")
+  }
+}
+library(wham, lib.loc = wham_lib)
+library(tidyverse)
 
 
 #' # ==============================================================================
@@ -214,8 +230,33 @@ configurations <- list(
 saveRDS(configurations, "models/BSB.EM.Y.Config.RDS")
 
 # BSB.EM.Y <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
-# saveRDS(BSB.EM.Y, "BSB.EM.Y.RDS")
+# saveRDS(BSB.EM.Y, "models/BSB.EM.Y.RDS")
 BSB.EM.Y <- readRDS("models/BSB.EM.Y.RDS")
+
+# WHAM 2.1.0.9011 incorrectly uses ifelse() to assign multi-stock SSB
+# column names. With a length-one condition, ifelse() returns only the first
+# stock name and fails when the SSB matrix has multiple columns.
+wham_par_tables_fn <- getFromNamespace("par_tables_fn", "wham")
+wham_par_tables_src <- paste(deparse(wham_par_tables_fn), collapse = "\n")
+wham_par_tables_src <- sub(
+  'colnames\\(SSB\\) <- ifelse\\(data\\[\\["n_stocks"\\]\\] > 1, stock.names.tab,\\s*"Total"\\)',
+  'colnames(SSB) <- if (data[["n_stocks"]] > 1) stock.names.tab else "Total"',
+  wham_par_tables_src,
+  perl = TRUE
+)
+if (
+  !grepl(
+    'colnames\\(SSB\\) <- if \\(data\\[\\["n_stocks"\\]\\] > 1\\)',
+    wham_par_tables_src
+  )
+) {
+  stop("Could not patch WHAM's multi-stock SSB column-name assignment.")
+}
+wham_par_tables_fn <- eval(parse(text = wham_par_tables_src))
+unlockBinding("par_tables_fn", asNamespace("wham"))
+assign("par_tables_fn", wham_par_tables_fn, envir = asNamespace("wham"))
+lockBinding("par_tables_fn", asNamespace("wham"))
+
 plot_wham_output(
   BSB.EM.Y,
   dir.main = file.path(
@@ -387,10 +428,10 @@ temp <- prepare_wham_input(
 )
 
 # BSB.EM.Y3 <- fit_wham(temp, do.sdrep = T, do.osa = T, do.retro = T, do.brps = T)
-# saveRDS(BSB.EM.Y3, "BSB.EM.Y3.RDS")
+# saveRDS(BSB.EM.Y3, "models/BSB.EM.Y3.RDS")
 BSB.EM.Y3 <- readRDS("models/BSB.EM.Y3.RDS")
 plot_wham_output(
-  BSB.EM.Y,
+  BSB.EM.Y3,
   dir.main = file.path(
     here(),
     "output",
@@ -406,23 +447,35 @@ plot_wham_output(
 
 # For all options, project at F40% (proj_F_opt = 3) for 3 years (2022-2024)
 
-# Option 1: Continue random effects on both recruitment (R) and Numbers-at-Age (NAA)
-# BSB.EM.Y3.Proj.1 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=1,proj_NAA_opt=1,proj_F_opt=c(3,3,3)),check.version = F)
+# # Option 1: Continue random effects on both recruitment (R) and Numbers-at-Age (NAA)
+# BSB.EM.Y3.Proj.1 <- project_wham(
+#   BSB.EM.Y3,
+#   proj.opts = list(proj_R_opt = 1, proj_NAA_opt = 1, proj_F_opt = c(3, 3, 3)),
+#   check.version = F
+# )
 
-# Option 2: Turn off random effects on both recruitment (R) and Numbers-at-Age (NAA)
-# BSB.EM.Y3.Proj.2 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=4,proj_NAA_opt=3,proj_F_opt=c(3,3,3)),check.version = F)
+# # Option 2: Turn off random effects on both recruitment (R) and Numbers-at-Age (NAA)
+# BSB.EM.Y3.Proj.2 <- project_wham(
+#   BSB.EM.Y3,
+#   proj.opts = list(proj_R_opt = 4, proj_NAA_opt = 3, proj_F_opt = c(3, 3, 3)),
+#   check.version = F
+# )
 
-# Option 3: Average recruitment and NAA random effects over historical reference period
-# BSB.EM.Y3.Proj.3 <- project_wham(BSB.EM.Y3,proj.opts=list(proj_R_opt=3,proj_NAA_opt=2,proj_F_opt=c(3,3,3)),check.version = F)
+# # Option 3: Average recruitment and NAA random effects over historical reference period
+# BSB.EM.Y3.Proj.3 <- project_wham(
+#   BSB.EM.Y3,
+#   proj.opts = list(proj_R_opt = 3, proj_NAA_opt = 2, proj_F_opt = c(3, 3, 3)),
+#   check.version = F
+# )
 
 # Save projection objects
-# saveRDS(BSB.EM.Y3.Proj.1, "BSB.EM.Y3.Proj.1.RDS")
-# saveRDS(BSB.EM.Y3.Proj.2, "BSB.EM.Y3.Proj.2.RDS")
-# saveRDS(BSB.EM.Y3.Proj.3, "BSB.EM.Y3.Proj.3.RDS")
+saveRDS(BSB.EM.Y3.Proj.1, "models/BSB.EM.Y3.Proj.1.RDS")
+saveRDS(BSB.EM.Y3.Proj.2, "models/BSB.EM.Y3.Proj.2.RDS")
+saveRDS(BSB.EM.Y3.Proj.3, "models/BSB.EM.Y3.Proj.3.RDS")
 
-BSB.EM.Y3.Proj.1 <- readRDS("models/BSB.EM.Y3.Proj.1.RDS")
-BSB.EM.Y3.Proj.2 <- readRDS("models/BSB.EM.Y3.Proj.2.RDS")
-BSB.EM.Y3.Proj.3 <- readRDS("models/BSB.EM.Y3.Proj.3.RDS")
+# BSB.EM.Y3.Proj.1 <- readRDS("models/BSB.EM.Y3.Proj.1.RDS")
+# BSB.EM.Y3.Proj.2 <- readRDS("models/BSB.EM.Y3.Proj.2.RDS")
+# BSB.EM.Y3.Proj.3 <- readRDS("models/BSB.EM.Y3.Proj.3.RDS")
 
 #' # ==============================================================================
 #' # 5) Forecast Performance Evaluation & Relative Bias Metrics
@@ -435,9 +488,17 @@ mods <- list(
   Option2 = BSB.EM.Y3.Proj.2,
   Option3 = BSB.EM.Y3.Proj.3
 )
+
+compare_output_dir <- file.path("output", "BSB_analysis", "0.Test_w_BSB_data")
+dir.create(
+  file.path(compare_output_dir, "compare_png"),
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
 compare_wham_models(
   mods,
-  fdir = file.path("output", "BSB_analysis", "0.Test_w_BSB_data"),
+  fdir = compare_output_dir,
   calc.aic = FALSE,
   do.table = F,
   plot.opts = list(which = c(1, 6, 7, 8, 9, 10), kobe.yr = 2021)

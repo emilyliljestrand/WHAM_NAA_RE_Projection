@@ -8,10 +8,25 @@
 rm(list = ls())
 
 suppressPackageStartupMessages({
-  library(wham)
+  library(here)
+  wham_lib <- "C:/Users/emily.liljestrand/AppData/Local/R/win-library/4.4/wham_2.1.0.9011"
+  if (!file.exists(file.path(wham_lib, "wham", "DESCRIPTION"))) {
+    stop(
+      paste("WHAM 2.1.0.9011 was not found at", wham_lib),
+      call. = FALSE
+    )
+  }
+  # rm(list = ls()) does not unload a WHAM namespace already loaded from another library.
+  if ("wham" %in% loadedNamespaces()) {
+    if ("package:wham" %in% search()) {
+      detach("package:wham", unload = TRUE, character.only = TRUE)
+    } else {
+      unloadNamespace("wham")
+    }
+  }
+  library(wham, lib.loc = wham_lib)
   library(SPASAM.MSE)
   library(tidyverse)
-  library(here)
 })
 
 #Read in existing seeds file, or make one if it doesn't exist
@@ -37,8 +52,50 @@ if (!file.exists("data/raw/seeds/Sim_Est_BSB_seeds.csv")) {
 # Full OM/EM window is 1989-2024. The training EM stops in 2021 and is then
 # projected through 2022-2024 for comparison with the full fit.
 
-nreps <- 10
-convergence_rate <- c()
+nreps <- 20
+converged_reps <- integer(0)
+ssb_bias_results <- list()
+
+extract_projection_comparison <- function(
+  quantity,
+  full_model,
+  projected_model,
+  projection_years,
+  labels = NULL
+) {
+  full_values <- full_model$rep[[quantity]]
+  projected_values <- projected_model$rep[[quantity]]
+
+  if (is.null(dim(full_values))) {
+    full_values <- matrix(full_values, ncol = 1L)
+    projected_values <- matrix(projected_values, ncol = 1L)
+  }
+
+  full_rows <- match(projection_years, full_model$years)
+  projected_rows <- match(projection_years, projected_model$years)
+  if (anyNA(full_rows) || anyNA(projected_rows)) {
+    stop(
+      "Projection years were not found in both fitted model objects.",
+      call. = FALSE
+    )
+  }
+
+  component_labels <- labels %||%
+    paste0("Component_", seq_len(ncol(full_values)))
+  tidyr::expand_grid(year = projection_years, component = component_labels) %>%
+    mutate(
+      quantity = quantity,
+      full_fit = as.vector(t(full_values[full_rows, , drop = FALSE])),
+      projection = as.vector(t(projected_values[
+        projected_rows,
+        ,
+        drop = FALSE
+      ])),
+      difference = projection - full_fit,
+      relative_difference = difference / full_fit
+    ) %>%
+    select(quantity, component, year, everything())
+}
 
 for (i in 1:nreps) {
   simulation_seed <- r.seed.set[[1]][i]
@@ -46,21 +103,19 @@ for (i in 1:nreps) {
   training_years <- 1989:2021
   projection_years <- 2022:2024
 
-  # Continue recruitment and NAA random effects (opt = 1) and set each projected
-  # year to F40% (proj_F_opt = 3).
+  # Continue recruitment and NAA random effects (opt = 1)
   projection_options1 <- list(
     proj_R_opt = 1,
     proj_NAA_opt = 1,
     proj_F_opt = rep(3, length(projection_years))
   )
-  # Turn off random effects on both Recruitment and NAA and set each projected
-  # year to F40% (proj_F_opt = 3).
+  # Turn off random effects on both Recruitment and NAA (opt = 4 for R, opt = 3 for NAA)
   projection_options2 <- list(
     proj_R_opt = 4,
     proj_NAA_opt = 3,
     proj_F_opt = rep(3, length(projection_years))
   )
-  # Average recruitment and NAA random effects over historical reference period
+  # Average recruitment and NAA random effects over last 5 years (opt = 3 for R, opt = 2 for NAA)
   projection_options3 <- list(
     proj_R_opt = 3,
     proj_NAA_opt = 2,
@@ -75,16 +130,6 @@ for (i in 1:nreps) {
     min(projection_years) == max(training_years) + 1L,
     file.exists(here("models", "BSB.EM.Y.RDS"))
   )
-
-  # Summarize whether each EM converged and whether the Hessian was positive
-  # definite (needed for sdreport / uncertainty).
-  check_convergence <- function(model) {
-    tibble(
-      convergence_code = model$opt$convergence,
-      converged = identical(model$opt$convergence, 0L),
-      pd_hessian = !isTRUE(model$na_sdrep)
-    )
-  }
 
   # ==============================================================================
   # 2) Simulate one 1989-2024 catch and index dataset from BSB.EM.Y
@@ -107,14 +152,6 @@ for (i in 1:nreps) {
     operating_model,
     seed = simulation_seed,
     random = random_effects
-  )
-
-  saveRDS(
-    simulated_model,
-    file.path(
-      output_dir,
-      paste("BSB.simulated.1989.2024.sim", i, ".RDS", sep = "")
-    )
   )
 
   # Also save just the simulated catch/index observations for inspection without
@@ -330,14 +367,6 @@ for (i in 1:nreps) {
     do.brps = TRUE,
     MakeADFun.silent = FALSE
   )
-  saveRDS(
-    full_model,
-    file.path(
-      output_dir,
-      paste("BSB.simulated.EM.1989.2024.sim", i, ".RDS", sep = "")
-    )
-  )
-
   # Training EM: withhold 2022-2024, then project those years in section 4.
   message("Building and fitting the 1989-2021 estimation model")
   training_input <- make_bsb_em_input(training_years)
@@ -349,30 +378,38 @@ for (i in 1:nreps) {
     do.brps = TRUE,
     MakeADFun.silent = FALSE
   )
-  saveRDS(
-    training_model,
-    file.path(
-      output_dir,
-      paste("BSB.simulated.EM.1989.2021.sim", i, ".RDS", sep = "")
-    )
-  )
+  # Match WHAM self_test()'s convergence criterion: successful optimizer
+  # convergence, successful sdreport, and an invertible Hessian.
+  full_converged <- isTRUE(full_model$opt$convergence == 0) &&
+    isTRUE(full_model$is_sdrep) &&
+    isTRUE(!full_model$na_sdrep)
+  training_converged <- isTRUE(training_model$opt$convergence == 0) &&
+    isTRUE(training_model$is_sdrep) &&
+    isTRUE(!training_model$na_sdrep)
+  both_models_converged <- full_converged && training_converged
 
-  convergence <- bind_rows(
-    check_convergence(full_model) %>%
-      mutate(model = "Full fit: 1989-2024", .before = 1),
-    check_convergence(training_model) %>%
-      mutate(model = "Training fit: 1989-2021", .before = 1)
+  convergence <- tibble(
+    model = c("Full fit: 1989-2024", "Training fit: 1989-2021"),
+    convergence_code = c(
+      full_model$opt$convergence,
+      training_model$opt$convergence
+    ),
+    converged = c(full_converged, training_converged),
+    pd_hessian = c(
+      !isTRUE(full_model$na_sdrep),
+      !isTRUE(training_model$na_sdrep)
+    )
   )
   write_csv(
     convergence,
     file.path(output_dir, paste("model_convergence.sim", i, ".csv", sep = ""))
   )
 
-  if (all(convergence$converged)) {
-    convergence_rate <- c(convergence_rate, i)
+  if (both_models_converged) {
+    converged_reps <- c(converged_reps, i)
   }
 
-  if (all(convergence$converged)) {
+  if (both_models_converged) {
     # ==============================================================================
     # 4) Project the 1989-2021 fit through 2024
     # ==============================================================================
@@ -395,136 +432,63 @@ for (i in 1:nreps) {
       proj.opts = projection_options3,
       check.version = FALSE
     )
-    saveRDS(
-      projected_model1,
-      file.path(
-        output_dir,
-        paste(
-          "BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt1.sim",
-          i,
-          ".RDS",
-          sep = ""
-        )
-      )
-    )
-    saveRDS(
-      projected_model2,
-      file.path(
-        output_dir,
-        paste(
-          "BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt2.sim",
-          i,
-          ".RDS",
-          sep = ""
-        )
-      )
-    )
-    saveRDS(
-      projected_model3,
-      file.path(
-        output_dir,
-        paste(
-          "BSB.simulated.EM.1989.2021.Proj.2022.2024.Opt3.sim",
-          i,
-          ".RDS",
-          sep = ""
-        )
-      )
-    )
-  }
-}
 
-# ==============================================================================
-# 5) Compare projected values with the full 1989-2024 fit
-# ==============================================================================
-# Differences and relative differences for 2022-2024 (years held out of the
-# training EM) for SSB, biomass, recruitment, and Fbar.
-
-# Pull one reported quantity from both models and reshape to year x component.
-extract_projection_comparison <- function(quantity, labels = NULL) {
-  full_values <- full_model$rep[[quantity]]
-  projected_values <- projected_model$rep[[quantity]]
-
-  if (is.null(dim(full_values))) {
-    full_values <- matrix(full_values, ncol = 1L)
-    projected_values <- matrix(projected_values, ncol = 1L)
-  }
-
-  full_rows <- match(projection_years, full_model$years)
-  projected_rows <- match(projection_years, projected_model$years)
-  if (anyNA(full_rows) || anyNA(projected_rows)) {
-    stop(
-      "Projection years were not found in both fitted model objects.",
-      call. = FALSE
-    )
-  }
-
-  component_labels <- labels %||%
-    paste0("Component_", seq_len(ncol(full_values)))
-  tidyr::expand_grid(year = projection_years, component = component_labels) %>%
-    mutate(
-      quantity = quantity,
-      full_fit = as.vector(t(full_values[full_rows, , drop = FALSE])),
-      projection = as.vector(t(projected_values[
-        projected_rows,
-        ,
-        drop = FALSE
-      ])),
-      difference = projection - full_fit,
-      relative_difference = difference / full_fit
+    ssb_bias_results[[length(ssb_bias_results) + 1L]] <- bind_rows(
+      extract_projection_comparison(
+        "SSB",
+        full_model,
+        projected_model1,
+        projection_years,
+        c("North", "South")
+      ) %>%
+        mutate(projection_model = "Option 1"),
+      extract_projection_comparison(
+        "SSB",
+        full_model,
+        projected_model2,
+        projection_years,
+        c("North", "South")
+      ) %>%
+        mutate(projection_model = "Option 2"),
+      extract_projection_comparison(
+        "SSB",
+        full_model,
+        projected_model3,
+        projection_years,
+        c("North", "South")
+      ) %>%
+        mutate(projection_model = "Option 3")
     ) %>%
-    select(quantity, component, year, everything())
+      group_by(projection_model, component) %>%
+      summarise(
+        mean_relative_bias = mean(relative_difference, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(simulation = i, .before = 1)
+  }
 }
 
-comparison <- bind_rows(
-  extract_projection_comparison("SSB", c("North", "South")),
-  extract_projection_comparison("B", c("North", "South")),
-  extract_projection_comparison("R", c("North", "South")),
-  extract_projection_comparison(
-    "Fbar",
-    operating_model_fit$input$catch_info$fleet_names
-  )
+convergence_rate <- length(converged_reps) / nreps
+message(
+  "Convergence rate: ",
+  length(converged_reps),
+  " of ",
+  nreps,
+  " simulations (",
+  formatC(100 * convergence_rate, format = "f", digits = 1),
+  "%; fraction = ",
+  formatC(convergence_rate, format = "f", digits = 3),
+  ")"
 )
 
+# ==============================================================================
+# 5) Save terminal three-year SSB relative bias results
+# ==============================================================================
+
+ssb_relative_bias <- bind_rows(ssb_bias_results)
 write_csv(
-  comparison,
-  file.path(output_dir, "projection_comparison_2022_2024.csv")
-)
-
-# SSB time series: full EM vs projection, by region.
-comparison_plot <- comparison %>%
-  filter(quantity == "SSB") %>%
-  select(quantity, component, year, full_fit, projection) %>%
-  pivot_longer(
-    c(full_fit, projection),
-    names_to = "model",
-    values_to = "value"
-  ) %>%
-  ggplot(aes(year, value, color = model, linetype = model)) +
-  geom_line(linewidth = 0.9) +
-  geom_point(size = 2) +
-  facet_wrap(vars(component), scales = "free_y") +
-  scale_color_manual(values = c(full_fit = "black", projection = "#0072B2")) +
-  labs(x = NULL, y = "Spawning stock biomass", color = NULL, linetype = NULL) +
-  theme_bw() +
-  theme(legend.position = "bottom")
-
-ggsave(
-  file.path(output_dir, "ssb_projection_comparison_2022_2024.png"),
-  comparison_plot,
-  width = 8,
-  height = 4.5,
-  dpi = 300
-)
-
-# Standard WHAM comparison plots (SSB, F, recruitment, etc.). AIC is not
-# meaningful here because the two models are fit to different year ranges.
-compare_wham_models(
-  list(Full_1989_2024 = full_model, Projected_from_2021 = projected_model),
-  fdir = output_dir,
-  calc.aic = FALSE,
-  do.table = FALSE,
-  plot.opts = list(which = c(1, 6, 7, 8, 9, 10), kobe.yr = 2021)
+  ssb_relative_bias,
+  file.path(output_dir, "ssb_relative_bias_2022_2024.csv")
 )
 
 message(

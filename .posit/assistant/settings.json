@@ -2,6 +2,20 @@
   "permission": {
     "executeCode": {
       "*": "allow"
+    },
+    "external_directory": {
+      "c:\\Users\\emily.liljestrand\\AppData\\Local\\R\\win-library\\4.4/*": "allow"
+    },
+    "bash": {
+      "git -C \"C:/Users/emily.liljestrand/Documents/GitHub/wham\" status *": "allow",
+      "git -C \"C:/Users/emily.liljestrand/Documents/GitHub/wham\" diff *": "allow",
+      "git -C 'C:/Users/emily.liljestrand/Documents/GitHub/wham' diff *": "allow",
+      "git add *": "allow",
+      "git commit *": "allow",
+      "git push *": "allow"
+    },
+    "edit": {
+      "*.R": "allow"
     }
   }
 }
