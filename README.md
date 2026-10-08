@@ -10,7 +10,7 @@ Black Sea Bass (*Centropristis striata*) projections and spawning-stock biomass
 | Path | Contents |
 | --- | --- |
 | [`R/BSB_analysis/0.Test_w_BSB_Data.R`](R/BSB_analysis/0.Test_w_BSB_Data.R) | Fits the full 1989–2024 Black Sea Bass model, fits a truncated 1989–2021 model, projects 2022–2024 under three random-effects options, and calculates relative SSB bias. |
-| [`R/BSB_analysis/1.Sim_Est_BSB.R`](R/BSB_analysis/1.Sim_Est_BSB.R) | Runs the 20-replicate simulation-estimation experiment: simulates observations, fits full and truncated models, projects the truncated fits, and saves comparisons. |
+| [`R/BSB_analysis/1.Sim_Est_BSB.R`](R/BSB_analysis/1.Sim_Est_BSB.R) | Runs a Black Sea Bass simulation-estimation experiment: simulates observations, fits full and truncated models, projects the truncated fits, and saves comparisons. |
 | [`R/functions/project_paths.R`](R/functions/project_paths.R) | Utilities for project-relative paths and output directories. |
 | [`config/mse_settings.R`](config/mse_settings.R) | General SPASAM.MSE settings list; it is configuration support rather than the current analysis entry point. |
 | [`data/raw/asap/`](data/raw/asap/) | North and South ASAP inputs for 1989–2021 and 1989–2024. |
