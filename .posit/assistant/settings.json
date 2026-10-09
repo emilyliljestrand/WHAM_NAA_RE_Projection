@@ -12,7 +12,17 @@
       "git -C 'C:/Users/emily.liljestrand/Documents/GitHub/wham' diff *": "allow",
       "git add *": "allow",
       "git commit *": "allow",
-      "git push *": "allow"
+      "git push *": "allow",
+      "git -C 'C:/Users/emily.liljestrand/Documents/GitHub/WHAM_NAA_RE_Projection' ls-files *": "allow",
+      "git -C 'C:/Users/emily.liljestrand/Documents/GitHub/WHAM_NAA_RE_Projection' show *": "allow",
+      "Rscript *": "allow",
+      "printf *": "allow",
+      "git apply *": "allow",
+      "git diff *": "allow",
+      "git status *": "allow",
+      "git show *": "allow",
+      "sed *": "allow",
+      "exit *": "allow"
     },
     "edit": {
       "*.R": "allow"
