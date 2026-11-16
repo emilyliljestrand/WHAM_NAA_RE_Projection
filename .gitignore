@@ -15,3 +15,8 @@ models/
 .RData
 .Ruserdata
 .Rproj.user
+
+# Local simulation scripts
+/R/BSB_analysis/1b.Sim_Est_BSB.R
+/R/BSB_analysis/3.Self_Test_BSB.R
+R/functions/simulation_data_comparison.R

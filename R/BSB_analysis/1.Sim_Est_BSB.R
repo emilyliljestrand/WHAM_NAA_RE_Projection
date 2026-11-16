@@ -54,11 +54,10 @@ if (!file.exists("data/raw/seeds/Sim_Est_BSB_seeds.csv")) {
 # Full OM/EM window is 1989-2024. The training EM is then projected through the
 # user-specified projection years for comparison with the full fit.
 
-nreps <- 100
+nreps <- 10
 converged_reps <- integer(0)
 ssb_bias_results <- list()
-save_simulated_data <- FALSE
-save_model_outputs <- FALSE
+save_simulation_outputs <- TRUE
 
 full_years <- 1989:2024
 training_years <- 1989:2021
@@ -101,7 +100,16 @@ if (length(completed_reps) > 0L) {
   )]
 }
 
-replicates_to_run <- setdiff(seq_len(nreps), completed_reps)
+missing_saved_outputs <- converged_reps[
+  !file.exists(file.path(
+    output_dir,
+    paste0("simulation_outputs.sim", converged_reps, ".RDS")
+  ))
+]
+replicates_to_run <- union(
+  setdiff(seq_len(nreps), completed_reps),
+  missing_saved_outputs
+)
 message(
   "Resuming simulation-estimation run: ",
   length(completed_reps),
@@ -259,7 +267,7 @@ extract_projection_ssb_comparison <- function(
   comparison_years <- tail(full_model$years, length(projection_years))
 
   full_rows <- match(comparison_years, full_model$years)
-  projected_rows <- match(comparison_years, projected_model$years)
+  projected_rows <- match(comparison_years, full_model$years)
   if (anyNA(full_rows) || anyNA(projected_rows)) {
     stop(
       "The comparison years were not found in both fitted model objects.",
@@ -278,7 +286,33 @@ extract_projection_ssb_comparison <- function(
   )
 }
 
-for (i in replicates_to_run) {
+replicate_error_file <- file.path(output_dir, "replicate_errors.csv")
+record_replicate_error <- function(replicate, seed, error) {
+  error_record <- tibble(
+    time = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
+    simulation = replicate,
+    seed = seed,
+    error_class = paste(class(error), collapse = ";"),
+    error_message = conditionMessage(error),
+    call = if (is.null(conditionCall(error))) {
+      ""
+    } else {
+      paste(deparse(conditionCall(error)), collapse = " ")
+    }
+  )
+  write.table(
+    error_record,
+    file = replicate_error_file,
+    sep = ",",
+    row.names = FALSE,
+    col.names = !file.exists(replicate_error_file),
+    append = file.exists(replicate_error_file),
+    quote = TRUE,
+    qmethod = "double"
+  )
+}
+
+run_replicate <- function(i) {
   run_number <- match(i, replicates_to_run)
   message(
     "Starting replicate ",
@@ -305,36 +339,13 @@ for (i in replicates_to_run) {
     random = random_effects
   )
 
-  # Also save just the simulated catch/index observations for inspection without
-  # loading the full WHAM object.
+  # Keep all simulated input data, including observations, error values, and the
+  # structural arrays needed to interpret the simulated outputs. The full WHAM
+  # object is not saved because it contains unnecessary TMB internals.
   simulated_data <- list(
     years = full_years,
-    catch = simulated_model$input$data[c(
-      "agg_catch",
-      "catch_paa",
-      "use_agg_catch",
-      "use_catch_paa",
-      "agg_catch_sigma",
-      "catch_Neff"
-    )],
-    index = simulated_model$input$data[c(
-      "agg_index",
-      "index_paa",
-      "use_indices",
-      "use_index_paa",
-      "agg_index_sigma",
-      "index_Neff"
-    )]
+    data = simulated_model$input$data
   )
-  if (save_simulated_data) {
-    saveRDS(
-      simulated_data,
-      file.path(
-        output_dir,
-        paste("simulated_catch_index_1989_2024.sim", i, ".RDS", sep = "")
-      )
-    )
-  }
 
   # ==============================================================================
   # 3) Create and fit the full and truncated estimation models
@@ -415,7 +426,7 @@ for (i in replicates_to_run) {
       i,
       ": full model did not converge; skipping remaining fits"
     )
-    next
+    return(invisible(NULL))
   }
 
   # Training EM: withhold 2022-2024, then project those years in section 4.
@@ -457,7 +468,7 @@ for (i in replicates_to_run) {
     )
   )
   if (both_models_converged) {
-    converged_reps <- c(converged_reps, i)
+    converged_reps <<- c(converged_reps, i)
   } else {
     message(
       "Replicate ",
@@ -493,22 +504,43 @@ for (i in replicates_to_run) {
       check.version = FALSE
     )
 
-    if (save_model_outputs) {
-      saveRDS(
-        full_model,
-        file.path(output_dir, paste0("full_model.sim", i, ".RDS"))
+    if (save_simulation_outputs) {
+      # Save only data and report arrays. This preserves all simulated data and
+      # model outputs while excluding large TMB environments, functions, and
+      # full-model sdrep objects.
+      simulation_outputs <- list(
+        simulation = i,
+        seed = simulation_seed,
+        years = list(
+          full = full_years,
+          training = training_years,
+          projection = projection_years
+        ),
+        simulated_data = simulated_data,
+        simulated_outputs = simulated_model$rep,
+        full_model = list(
+          years = full_model$years,
+          rep = full_model$rep
+        ),
+        projected_models = list(
+          option1 = list(
+            years = projected_model1$years,
+            rep = projected_model1$rep
+          ),
+          option2 = list(
+            years = projected_model2$years,
+            rep = projected_model2$rep
+          ),
+          option3 = list(
+            years = projected_model3$years,
+            rep = projected_model3$rep
+          )
+        )
       )
       saveRDS(
-        projected_model1,
-        file.path(output_dir, paste0("projected_model1.sim", i, ".RDS"))
-      )
-      saveRDS(
-        projected_model2,
-        file.path(output_dir, paste0("projected_model2.sim", i, ".RDS"))
-      )
-      saveRDS(
-        projected_model3,
-        file.path(output_dir, paste0("projected_model3.sim", i, ".RDS"))
+        simulation_outputs,
+        file.path(output_dir, paste0("simulation_outputs.sim", i, ".RDS")),
+        compress = "xz"
       )
     }
 
@@ -533,7 +565,7 @@ for (i in replicates_to_run) {
         mutate(projection_model = "Option 3")
     ) %>%
       mutate(simulation = i, .before = 1)
-    ssb_bias_results[[length(ssb_bias_results) + 1L]] <- replicate_bias
+    ssb_bias_results[[length(ssb_bias_results) + 1L]] <<- replicate_bias
     write_csv(
       replicate_bias,
       file.path(output_dir, paste0("ssb_relative_bias.sim", i, ".csv"))
@@ -554,6 +586,33 @@ for (i in replicates_to_run) {
     " of ",
     length(replicates_to_run),
     ")"
+  )
+}
+
+for (i in replicates_to_run) {
+  simulation_seed <- r.seed.set[[1]][i]
+  tryCatch(
+    run_replicate(i),
+    error = function(error) {
+      tryCatch(
+        record_replicate_error(i, simulation_seed, error),
+        error = function(log_error) {
+          message(
+            "Could not write the error log for replicate ",
+            i,
+            ": ",
+            conditionMessage(log_error)
+          )
+        }
+      )
+      message(
+        "Replicate ",
+        i,
+        " failed: ",
+        conditionMessage(error),
+        ". Continuing with the next replicate."
+      )
+    }
   )
 }
 
@@ -578,6 +637,72 @@ ssb_relative_bias <- bind_rows(ssb_bias_results)
 write_csv(
   ssb_relative_bias,
   ssb_bias_file
+)
+
+# Read the saved results before plotting.
+ssb_relative_bias <- read_csv(
+  ssb_bias_file,
+  show_col_types = FALSE
+)
+
+# Compare mean terminal-horizon SSB relative bias across projection options and
+# regions. The zero line represents no relative bias.
+label_offset <- max(
+  diff(range(ssb_relative_bias$mean_relative_error, na.rm = TRUE)) * 0.04,
+  0.01
+)
+mean_labels <- ssb_relative_bias |>
+  group_by(projection_model, region) |>
+  summarise(
+    mean_value = mean(mean_relative_error, na.rm = TRUE),
+    min_value = min(mean_relative_error, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    label_y = min_value - label_offset,
+    label = sprintf("Mean: %.3f", mean_value)
+  )
+
+ggplot(
+  ssb_relative_bias,
+  aes(x = projection_model, y = mean_relative_error, fill = region)
+) +
+  geom_boxplot(
+    position = position_dodge(width = 0.75),
+    outlier.shape = NA
+  ) +
+  geom_point(
+    aes(group = region),
+    position = position_jitterdodge(jitter.width = 0.12, dodge.width = 0.75),
+    color = "black",
+    alpha = 0.45,
+    size = 1.2
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_text(
+    data = mean_labels,
+    aes(
+      x = projection_model,
+      y = label_y,
+      label = label,
+      group = region
+    ),
+    position = position_dodge(width = 0.75),
+    inherit.aes = FALSE,
+    size = 3
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.12, 0.05))) +
+  labs(
+    x = "Projection model",
+    y = "Mean SSB relative bias",
+    fill = "Region"
+  )
+ggsave(
+  file.path(output_dir, "ssb_relative_bias_comparison.png"),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300
 )
 
 message(
